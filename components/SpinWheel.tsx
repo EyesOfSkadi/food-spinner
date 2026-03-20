@@ -13,7 +13,7 @@ const COLORS = [
 
 interface Props {
   restaurants: Restaurant[]
-  onSpinEnd: (restaurant: Restaurant) => void
+  onSpinEnd: () => void
 }
 
 export default function SpinWheel({ restaurants, onSpinEnd }: Props) {
@@ -174,7 +174,7 @@ export default function SpinWheel({ restaurants, onSpinEnd }: Props) {
         isSpinningRef.current = false
         setSpinning(false)
         setWinnerName(restaurants[winnerIdx].name)
-        onSpinEnd(restaurants[winnerIdx])
+        onSpinEnd()
       }
     }
 

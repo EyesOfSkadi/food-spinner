@@ -109,6 +109,7 @@ export default function Home() {
   const [selected, setSelected] = useState<Restaurant | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null)
   const [totalFound, setTotalFound] = useState(0)
+  const allPlacesRef = useRef<Restaurant[]>([])
   const spinWheelKey = useRef(0)
 
   const search = useCallback(async () => {
@@ -173,8 +174,9 @@ out center tags;`
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
 
       const total = places.length
-      // Shuffle top results so the wheel shows a varied sample, not just the 25 nearest
-      const sample = places.slice(0, 25).sort(() => Math.random() - 0.5)
+      allPlacesRef.current = places
+      // Show 25 random ones on the wheel (visual only)
+      const sample = [...places].sort(() => Math.random() - 0.5).slice(0, 25)
 
       spinWheelKey.current += 1
       setRestaurants(sample)
@@ -193,6 +195,12 @@ out center tags;`
       setLoading(false)
     }
   }, [radius, placeType])
+
+  const handleSpinEnd = useCallback(() => {
+    const all = allPlacesRef.current
+    const winner = all[Math.floor(Math.random() * all.length)]
+    setSelected(winner)
+  }, [])
 
   const currentType = PLACE_TYPES.find((t) => t.value === placeType)!
 
@@ -260,7 +268,7 @@ out center tags;`
             <SpinWheel
               key={spinWheelKey.current}
               restaurants={restaurants}
-              onSpinEnd={setSelected}
+              onSpinEnd={handleSpinEnd}
             />
           </div>
         )}
