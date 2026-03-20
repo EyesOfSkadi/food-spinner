@@ -77,17 +77,38 @@ function isLikelyOpen(tags: Record<string, string>): boolean {
   return true // can't determine → include
 }
 
+// ── Config ─────────────────────────────────────────────────────────────────
+
+type PlaceType = 'food' | 'drink'
+
+const PLACE_TYPES: { value: PlaceType; label: string; emoji: string; amenities: string[] }[] = [
+  {
+    value: 'food',
+    label: 'Quán ăn',
+    emoji: '🍜',
+    amenities: ['restaurant', 'fast_food', 'food_court', 'bakery'],
+  },
+  {
+    value: 'drink',
+    label: 'Quán nước',
+    emoji: '🧋',
+    // cafe covers most cafes & trà sữa in OSM Vietnam; bubble_tea for explicit tags
+    amenities: ['cafe', 'bubble_tea', 'juice_bar', 'ice_cream'],
+  },
+]
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [radius, setRadius] = useState(1)
+  const [placeType, setPlaceType] = useState<PlaceType>('food')
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
   const [selected, setSelected] = useState<Restaurant | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null)
-  const spinWheelKey = useRef(0) // force remount on new search
+  const spinWheelKey = useRef(0)
 
   const search = useCallback(async () => {
     const r = Number(radius)
@@ -117,10 +138,13 @@ export default function Home() {
       setUserLocation({ lat, lon })
 
       const radiusM = Math.round(r * 1000)
+      const cfg = PLACE_TYPES.find((t) => t.value === placeType)!
+      const amenityRegex = `^(${cfg.amenities.join('|')})$`
+
       const query = `[out:json][timeout:30];
 (
-  node["amenity"~"^(restaurant|cafe|fast_food|food_court|bar|pub|bakery|ice_cream)$"]["name"](around:${radiusM},${lat},${lon});
-  way["amenity"~"^(restaurant|cafe|fast_food|food_court|bar|pub|bakery|ice_cream)$"]["name"](around:${radiusM},${lat},${lon});
+  node["amenity"~"${amenityRegex}"]["name"](around:${radiusM},${lat},${lon});
+  way["amenity"~"${amenityRegex}"]["name"](around:${radiusM},${lat},${lon});
 );
 out center tags;`
 
@@ -146,16 +170,13 @@ out center tags;`
         .filter((p) => p.name && p.lat && p.lon)
         .filter((p) => isLikelyOpen(p.tags))
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
-        .slice(0, 25) // wheel looks best with ≤25 segments
 
       spinWheelKey.current += 1
       setRestaurants(places)
       setSearched(true)
 
       if (places.length === 0) {
-        setError(
-          `Không tìm thấy quán đang mở trong ${r} km. Thử tăng bán kính lên?`
-        )
+        setError(`Không tìm thấy ${cfg.label.toLowerCase()} đang mở trong ${r} km. Thử tăng bán kính lên?`)
       }
     } catch (err: any) {
       if (err.code === 1) setError('Vui lòng cho phép truy cập vị trí trong trình duyệt.')
@@ -165,7 +186,9 @@ out center tags;`
     } finally {
       setLoading(false)
     }
-  }, [radius])
+  }, [radius, placeType])
+
+  const currentType = PLACE_TYPES.find((t) => t.value === placeType)!
 
   return (
     <main className="page">
@@ -178,7 +201,7 @@ out center tags;`
 
         {/* Search */}
         <div className="search-section">
-          <label className="label">Tìm quán ăn đang mở trong bán kính</label>
+          <label className="label">Tìm trong bán kính</label>
           <div className="input-row">
             <input
               type="number"
@@ -192,8 +215,22 @@ out center tags;`
               disabled={loading}
             />
             <span className="unit">km</span>
+
+            <select
+              value={placeType}
+              onChange={(e) => setPlaceType(e.target.value as PlaceType)}
+              className="type-select"
+              disabled={loading}
+            >
+              {PLACE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.emoji} {t.label}
+                </option>
+              ))}
+            </select>
+
             <button onClick={search} disabled={loading} className="btn-search">
-              {loading ? '⏳ Đang tìm…' : '🔍 Tìm quán'}
+              {loading ? '⏳ Đang tìm…' : '🔍 Tìm'}
             </button>
           </div>
         </div>
@@ -203,15 +240,15 @@ out center tags;`
         {loading && (
           <div className="loading-box">
             <div className="loader" />
-            <p>Đang xác định vị trí và tìm quán ăn gần bạn…</p>
+            <p>Đang xác định vị trí và tìm {currentType.label.toLowerCase()} gần bạn…</p>
           </div>
         )}
 
         {searched && restaurants.length > 0 && (
           <div className="wheel-section">
             <p className="found-label">
-              ✅ Tìm thấy <strong>{restaurants.length}</strong> quán đang mở — bấm{' '}
-              <strong>Quay ngay!</strong> hoặc click vào vòng quay
+              ✅ Tìm thấy <strong>{restaurants.length}</strong> {currentType.label.toLowerCase()} đang mở —
+              bấm <strong>Quay ngay!</strong> hoặc click vào vòng quay
             </p>
             <SpinWheel
               key={spinWheelKey.current}
