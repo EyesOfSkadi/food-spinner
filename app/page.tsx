@@ -108,6 +108,7 @@ export default function Home() {
   const [searched, setSearched] = useState(false)
   const [selected, setSelected] = useState<Restaurant | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null)
+  const [totalFound, setTotalFound] = useState(0)
   const spinWheelKey = useRef(0)
 
   const search = useCallback(async () => {
@@ -171,11 +172,16 @@ out center tags;`
         .filter((p) => isLikelyOpen(p.tags))
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
 
+      const total = places.length
+      // Shuffle top results so the wheel shows a varied sample, not just the 25 nearest
+      const sample = places.slice(0, 25).sort(() => Math.random() - 0.5)
+
       spinWheelKey.current += 1
-      setRestaurants(places)
+      setRestaurants(sample)
+      setTotalFound(total)
       setSearched(true)
 
-      if (places.length === 0) {
+      if (total === 0) {
         setError(`Không tìm thấy ${cfg.label.toLowerCase()} đang mở trong ${r} km. Thử tăng bán kính lên?`)
       }
     } catch (err: any) {
@@ -247,8 +253,9 @@ out center tags;`
         {searched && restaurants.length > 0 && (
           <div className="wheel-section">
             <p className="found-label">
-              ✅ Tìm thấy <strong>{restaurants.length}</strong> {currentType.label.toLowerCase()} đang mở —
-              bấm <strong>Quay ngay!</strong> hoặc click vào vòng quay
+              ✅ Tìm thấy <strong>{totalFound}</strong> {currentType.label.toLowerCase()} đang mở
+              {totalFound > 25 && <> — hiển thị <strong>25</strong> ngẫu nhiên trên vòng quay</>}
+              {' '}— bấm <strong>Quay ngay!</strong> hoặc click vào vòng quay
             </p>
             <SpinWheel
               key={spinWheelKey.current}
